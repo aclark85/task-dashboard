@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F2F3F5;
+  --surface: #FFFFFF;
+  --border: #E2E5EA;
+  --text: #111827;
+  --text-muted: #6B7280;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,0.14);
+  --r: 10px;
+  --r-sm: 6px;
+
+  --spears:   #C8973F;
+  --playbox:  #5C6BC0;
+  --personal: #2E9E6B;
+
+  --today:    #EF4444;
+  --highpri:  #F97316;
+  --thisweek: #3B82F6;
+  --someday:  #6B7280;
+  --done:     #22C55E;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: var(--shadow);
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.logo-icon { font-size: 18px; }
+
+.org-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+}
+
+.org-tab {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.org-tab:hover { color: var(--text); }
+.org-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+.org-tab[data-org="spears"].active   { color: var(--spears); }
+.org-tab[data-org="playbox"].active  { color: var(--playbox); }
+.org-tab[data-org="personal"].active { color: var(--personal); }
+
+.btn-new {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.btn-new:hover { opacity: 0.85; }
+.btn-new.spears   { background: var(--spears); }
+.btn-new.playbox  { background: var(--playbox); }
+.btn-new.personal { background: var(--personal); }
+
+/* ── BOARD ── */
+.board {
+  display: flex;
+  gap: 14px;
+  padding: 20px 24px 36px;
+  overflow-x: auto;
+  min-height: calc(100vh - 56px);
+  align-items: flex-start;
+}
+
+/* ── COLUMN ── */
+.column {
+  flex: 0 0 256px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 100px);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.col-header {
+  padding: 12px 14px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid transparent;
+  flex-shrink: 0;
+}
+.col-header[data-bucket="today"]        { border-color: var(--today); }
+.col-header[data-bucket="highpriority"] { border-color: var(--highpri); }
+.col-header[data-bucket="thisweek"]     { border-color: var(--thisweek); }
+.col-header[data-bucket="someday"]      { border-color: var(--someday); }
+.col-header[data-bucket="completed"]    { border-color: var(--done); }
+
+.col-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.col-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+[data-bucket="today"]        .col-dot { background: var(--today); }
+[data-bucket="highpriority"] .col-dot { background: var(--highpri); }
+[data-bucket="thisweek"]     .col-dot { background: var(--thisweek); }
+[data-bucket="someday"]      .col-dot { background: var(--someday); }
+[data-bucket="completed"]    .col-dot { background: var(--done); }
+
+.col-count {
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  min-height: 56px;
+}
+.col-body.drag-over {
+  background: rgba(0,0,0,0.025);
+  outline: 2px dashed var(--border);
+  outline-offset: -4px;
+  border-radius: 0;
+}
+
+/* ── TASK CARD ── */
+.task-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 9px 10px 8px;
+  margin-bottom: 5px;
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.12s, opacity 0.15s;
+  position: relative;
+  user-select: none;
+}
+.task-card:last-child { margin-bottom: 0; }
+.task-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.task-card.is-dragging { opacity: 0.4; cursor: grabbing; }
+.task-card.drag-placeholder {
+  border: 2px dashed var(--border);
+  background: var(--bg);
+  height: 52px;
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.task-cb {
+  flex-shrink: 0;
+  width: 15px; height: 15px;
+  border-radius: 4px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  margin-top: 2px;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.15s, border-color 0.15s;
+  background-image: none;
+}
+.task-cb:checked {
+  background: var(--done);
+  border-color: var(--done);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6l3 3 5-5' stroke='white' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 10px 10px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.task-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  flex: 1;
+  word-break: break-word;
+}
+.task-title.struck {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.edit-btn {
+  position: absolute;
+  top: 7px; right: 7px;
+  width: 22px; height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: opacity 0.12s, background 0.12s;
+}
+.task-card:hover .edit-btn { opacity: 1; }
+.edit-btn:hover { background: var(--bg); color: var(--text); }
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.pri-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.pri-badge.high   { background: #FEE2E2; color: #DC2626; }
+.pri-badge.medium { background: #FEF3C7; color: #B45309; }
+.pri-badge.low    { background: #DCFCE7; color: #15803D; }
+
+.due-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.due-tag.overdue { color: var(--today); font-weight: 600; }
+
+.card-notes {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.org-bar {
+  height: 2px;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  margin-top: 7px;
+}
+.org-bar.spears   { background: var(--spears); }
+.org-bar.playbox  { background: var(--playbox); }
+.org-bar.personal { background: var(--personal); }
+
+/* ── ADD INLINE BTN ── */
+.col-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 8px;
+  margin-top: 5px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+.col-add-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-style: solid;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.empty-icon { font-size: 22px; margin-bottom: 4px; }
+
+/* ── MODAL ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(3px);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.overlay.hidden { display: none; }
+
+.modal {
+  background: var(--surface);
+  border-radius: 14px;
+  width: 460px;
+  max-width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 72px rgba(0,0,0,0.28);
+}
+
+.modal-head {
+  padding: 20px 22px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-head h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.close-btn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background 0.15s;
+}
+.close-btn:hover { background: var(--border); color: var(--text); }
+
+.modal-body {
+  padding: 18px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.form-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.form-input, .form-select, .form-textarea {
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 11px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--playbox);
+  box-shadow: 0 0 0 3px rgba(92,107,192,0.12);
+}
+.form-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.modal-footer .spacer { flex: 1; }
+
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+.btn-danger  { background: #FEE2E2; color: #DC2626; }
+.btn-primary { background: var(--playbox); color: #fff; }
+.btn-primary.spears   { background: var(--spears); }
+.btn-primary.playbox  { background: var(--playbox); }
+.btn-primary.personal { background: var(--personal); }
+
+.hidden { display: none !important; }
+
+/* sync status dot */
+.sync-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #22C55E;
+  flex-shrink: 0;
+  transition: background 0.3s;
+  cursor: default;
+}
+
+/* scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── BUCKET NAV (mobile only) ── */
+.bucket-nav {
+  display: none;
+}
+
+/* ── MOBILE ── */
+@media (max-width: 680px) {
+  .header {
+    height: auto;
+    padding: 10px 14px 0;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .logo {
+    flex: 1;
+    padding-bottom: 10px;
+  }
+  .btn-new {
+    padding: 6px 12px;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .btn-new span { display: none; } /* hide SVG icon text label */
+  .org-tabs {
+    width: 100%;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    padding: 6px 0;
+    gap: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .org-tabs::-webkit-scrollbar { display: none; }
+  .org-tab {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 12px;
+    text-align: center;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* Bucket nav strip */
+  .bucket-nav {
+    display: flex;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: sticky;
+    top: 87px;
+    z-index: 100;
+  }
+  .bucket-nav::-webkit-scrollbar { display: none; }
+  .bucket-chip {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .bucket-chip.active {
+    color: var(--text);
+    border-color: currentColor;
+    background: var(--surface);
+  }
+  .bucket-chip[data-bucket="today"].active        { color: var(--today); background: #FEF2F2; border-color: var(--today); }
+  .bucket-chip[data-bucket="highpriority"].active { color: var(--highpri); background: #FFF7ED; border-color: var(--highpri); }
+  .bucket-chip[data-bucket="thisweek"].active     { color: var(--thisweek); background: #EFF6FF; border-color: var(--thisweek); }
+  .bucket-chip[data-bucket="someday"].active      { color: var(--someday); background: #F9FAFB; border-color: var(--someday); }
+  .bucket-chip[data-bucket="completed"].active    { color: var(--done); background: #F0FDF4; border-color: var(--done); }
+
+  /* Board: single column */
+  .board {
+    padding: 12px 14px 32px;
+    gap: 0;
+    overflow-x: hidden;
+  }
+  .column {
+    flex: none;
+    width: 100%;
+    max-height: none;
+    box-shadow: none;
+    background: transparent;
+    border-radius: 0;
+  }
+  .column.mob-hidden { display: none; }
+  .col-header {
+    padding: 10px 0 8px;
+    background: transparent;
+    position: static;
+  }
+  .col-body {
+    background: transparent;
+    padding: 0;
+  }
+  .task-card {
+    background: var(--surface);
+  }
+
+  /* Modal: full-screen on mobile */
+  .overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px 18px 0 0;
+    max-height: 92vh;
+  }
+  .form-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <span class="logo-icon">📋</span>
+    Task Dashboard
+  </div>
+
+  <div class="org-tabs" id="orgTabs">
+    <button class="org-tab active" data-org="spears">Spears Arts</button>
+    <button class="org-tab" data-org="playbox">Playbox Studios</button>
+    <button class="org-tab" data-org="personal">Personal</button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="sync-dot" id="syncDot" title="Synced"></span>
+    <button class="btn-new spears" id="btnNew">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      New Task
+    </button>
+  </div>
+</header>
+
+<!-- BUCKET NAV (visible on mobile only) -->
+<div class="bucket-nav" id="bucketNav"></div>
+
+<!-- BOARD -->
+<div class="board" id="board"></div>
+
+<!-- MODAL -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal" id="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 id="modalTitle">New Task</h2>
+      <button class="close-btn" id="btnClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-group">
+        <label class="form-label" for="fTitle">Task Title *</label>
+        <input class="form-input" id="fTitle" type="text" placeholder="What needs to be done?" autocomplete="off" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="fOrg">Organization</label>
+          <select class="form-select" id="fOrg">
+            <option value="spears">Spears Arts</option>
+            <option value="playbox">Playbox Studios</option>
+            <option value="personal">Personal</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="fBucket">Bucket</label>
+          <select class="form-select" id="fBucket">
+            <option value="today">Today</option>
+            <option value="highpriority">High Priority</option>
+            <option value="thisweek">This Week</option>
+            <option value="someday">Someday</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="fPriority">Priority Flag</label>
+          <select class="form-select" id="fPriority">
+            <option value="high">🔴 High</option>
+            <option value="medium" selected>🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="fDue">Due Date</label>
+          <input class="form-input" id="fDue" type="date" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="fNotes">Notes</label>
+        <textarea class="form-textarea" id="fNotes" placeholder="Any context, links, or details…"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-danger hidden" id="btnDelete">Delete</button>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="btnCancel">Cancel</button>
+        <button class="btn btn-primary playbox" id="btnSave">Add Task</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════
+const STORAGE_KEY = 'maxTaskDashboard_v2';
+const SB_URL      = 'https://nocxpdnrobxaotmluzpt.supabase.co';
+const SB_KEY      = 'sb_publishable_rCdOtMjNW9MgUHO2qhzKKA_j_rcGjaR';
+
+const BUCKETS = [
+  { id: 'today',        label: 'Today',         icon: '🔥' },
+  { id: 'highpriority', label: 'High Priority',  icon: '⚡' },
+  { id: 'thisweek',     label: 'This Week',      icon: '📅' },
+  { id: 'someday',      label: 'Someday',        icon: '🌱' },
+  { id: 'completed',    label: 'Completed',      icon: '✅' },
+];
+
+const ORGS = { spears: 'Spears Arts', playbox: 'Playbox Studios', personal: 'Personal' };
+
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let tasks        = [];
+let curOrg       = 'spears';
+let editId       = null;
+let defBucket    = 'today';
+let dragId       = null;
+let mobileBucket = 'today';
+let sb;
+
+function isMobile() { return window.innerWidth <= 680; }
+function uid()  { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// ═══════════════════════════════════════
+//  SYNC STATUS
+// ═══════════════════════════════════════
+function setSyncStatus(s) {
+  const dot = document.getElementById('syncDot');
+  if (!dot) return;
+  const map = {
+    syncing: { bg: '#F59E0B', title: 'Syncing…' },
+    synced:  { bg: '#22C55E', title: 'Synced' },
+    offline: { bg: '#EF4444', title: 'Offline – changes saved locally' },
+  };
+  const m = map[s] || map.offline;
+  dot.style.background = m.bg;
+  dot.title = m.title;
+}
+
+// ═══════════════════════════════════════
+//  ROW CONVERSION
+// ═══════════════════════════════════════
+function toRow(t) {
+  return {
+    id: t.id, org: t.org, bucket: t.bucket, title: t.title,
+    priority: t.priority || 'medium',
+    due_date: t.dueDate || '',
+    notes: t.notes || '',
+    created_at: t.createdAt || Date.now(),
+    completed_at: t.completedAt || null,
+  };
+}
+function fromRow(r) {
+  return {
+    id: r.id, org: r.org, bucket: r.bucket, title: r.title,
+    priority: r.priority || 'medium',
+    dueDate: r.due_date || '',
+    notes: r.notes || '',
+    createdAt: r.created_at,
+    completedAt: r.completed_at,
+  };
+}
+
+// ═══════════════════════════════════════
+//  SUPABASE HELPERS
+// ═══════════════════════════════════════
+async function sbLoad() {
+  setSyncStatus('syncing');
+  try {
+    const { data, error } = await sb.from('tasks').select('*').order('created_at');
+    if (error) throw error;
+    setSyncStatus('synced');
+    return data.map(fromRow);
+  } catch(e) {
+    console.warn('Supabase load failed:', e.message);
+    setSyncStatus('offline');
+    return null;
+  }
+}
+
+async function sbUpsert(task) {
+  setSyncStatus('syncing');
+  try {
+    const { error } = await sb.from('tasks').upsert(toRow(task));
+    if (error) throw error;
+    setSyncStatus('synced');
+  } catch(e) {
+    console.warn('Supabase upsert failed:', e.message);
+    setSyncStatus('offline');
+  }
+}
+
+async function sbDelete(id) {
+  setSyncStatus('syncing');
+  try {
+    const { error } = await sb.from('tasks').delete().eq('id', id);
+    if (error) throw error;
+    setSyncStatus('synced');
+  } catch(e) {
+    console.warn('Supabase delete failed:', e.message);
+    setSyncStatus('offline');
+  }
+}
+
+async function sbUpsertAll(taskList) {
+  setSyncStatus('syncing');
+  try {
+    const { error } = await sb.from('tasks').upsert(taskList.map(toRow));
+    if (error) throw error;
+    setSyncStatus('synced');
+  } catch(e) {
+    console.warn('Supabase upsert-all failed:', e.message);
+    setSyncStatus('offline');
+  }
+}
+
+// ═══════════════════════════════════════
+//  LOAD / SAVE
+// ═══════════════════════════════════════
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+
+async function load() {
+  const remote = await sbLoad();
+  if (remote !== null) {
+    tasks = remote;
+    if (tasks.length === 0) { seed(); await sbUpsertAll(tasks); }
+    else save();
+  } else {
+    // offline – fall back to localStorage cache
+    try { tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { tasks = []; }
+    if (tasks.length === 0) seed();
+  }
+}
+
+// ═══════════════════════════════════════
+//  SEED DATA (first launch only)
+// ═══════════════════════════════════════
+function seed() {
+  const today = new Date().toISOString().slice(0,10);
+  tasks = [
+    // ── SPEARS ARTS · TODAY ──
+    { id: uid(), org: 'spears',   bucket: 'today',        title: 'Nicole & Jason card',                       priority: 'medium', dueDate: today, notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'today',        title: 'Demii – let me know soon re: accommodation options & invoice', priority: 'high', dueDate: today, notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'today',        title: 'Hannah meeting – be positive, be open',     priority: 'medium', dueDate: today, notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'today',        title: 'Jess flights',                              priority: 'high',   dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'today',        title: 'Cash flow & credit cards (STA & PBX)',      priority: 'high',   dueDate: '',    notes: 'Shared with Playbox.' },
+    // ── SPEARS ARTS · THIS WEEK ──
+    { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'KSA instructor & WHT payments',             priority: 'high',   dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'Reset for August sales',                    priority: 'medium', dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'DH&KC calendar of events',                  priority: 'medium', dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'Theater in education',                      priority: 'medium', dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'Claude build out',                          priority: 'medium', dueDate: '',    notes: '' },
+    // ── SPEARS ARTS · HIGH PRIORITY ──
+    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'CWC',                                       priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'PAGE',                                      priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'PIPER (Stacey)',                            priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'WAGON WHEEL',                               priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    // ── SPEARS ARTS · SOMEDAY ──
+    { id: uid(), org: 'spears',   bucket: 'someday',      title: 'School vendor expo?',                       priority: 'low',    dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'someday',      title: 'STA Ambassadors (Jodie, Matt etc)',         priority: 'low',    dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'someday',      title: 'Directors\' loan accounts',                 priority: 'medium', dueDate: '',    notes: '' },
+    { id: uid(), org: 'spears',   bucket: 'someday',      title: 'B/C BT tracking',                          priority: 'low',    dueDate: '',    notes: '' },
+
+    // ── PLAYBOX STUDIOS · TODAY ──
+    { id: uid(), org: 'playbox',  bucket: 'today',        title: 'Check in with LP',                          priority: 'medium', dueDate: today, notes: '' },
+    { id: uid(), org: 'playbox',  bucket: 'today',        title: 'Liv taxes',                                 priority: 'high',   dueDate: today, notes: '' },
+    // ── PLAYBOX STUDIOS · THIS WEEK ──
+    { id: uid(), org: 'playbox',  bucket: 'thisweek',     title: 'Friday – Credit Cards',                     priority: 'high',   dueDate: '',    notes: '' },
+    // ── PLAYBOX STUDIOS · SOMEDAY ──
+    { id: uid(), org: 'playbox',  bucket: 'someday',      title: 'Playbox Playdate',                          priority: 'low',    dueDate: '',    notes: '' },
+    { id: uid(), org: 'playbox',  bucket: 'someday',      title: 'Chase Sapphire PBX Claims',                 priority: 'medium', dueDate: '',    notes: '' },
+    { id: uid(), org: 'playbox',  bucket: 'someday',      title: 'PBX Teacher Training Program',              priority: 'medium', dueDate: '',    notes: '' },
+
+    // ── PERSONAL · TODAY ──
+    { id: uid(), org: 'personal', bucket: 'today',        title: 'Hero flea meds',                            priority: 'medium', dueDate: today, notes: '' },
+    { id: uid(), org: 'personal', bucket: 'today',        title: 'Ocado order & pre-orders bookings',         priority: 'medium', dueDate: today, notes: '' },
+    { id: uid(), org: 'personal', bucket: 'today',        title: 'TJ\'s grocery run',                        priority: 'low',    dueDate: '',    notes: 'Meatballs, chicken, mac n cheese, lunch stuff, apples, bananas, battered fish, pizza, cucumber, apple sauce, baby food.' },
+  ];
+  save();
+}
+
+// ═══════════════════════════════════════
+//  BUCKET NAV (mobile)
+// ═══════════════════════════════════════
+function renderBucketNav() {
+  const nav = document.getElementById('bucketNav');
+  nav.innerHTML = BUCKETS.map(b => {
+    const count = tasks.filter(t => t.org === curOrg && t.bucket === b.id).length;
+    return `<button class="bucket-chip ${mobileBucket === b.id ? 'active' : ''}" data-bucket="${b.id}">
+      ${b.label} ${count > 0 ? `<span style="opacity:0.6;font-weight:400">${count}</span>` : ''}
+    </button>`;
+  }).join('');
+  nav.querySelectorAll('.bucket-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      mobileBucket = chip.dataset.bucket;
+      defBucket = mobileBucket;
+      render();
+    });
+  });
+}
+
+// ═══════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════
+function render() {
+  renderBucketNav();
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  BUCKETS.forEach(b => {
+    const bt = tasks.filter(t => t.org === curOrg && t.bucket === b.id);
+
+    const col = document.createElement('div');
+    col.className = 'column' + (isMobile() && b.id !== mobileBucket ? ' mob-hidden' : '');
+
+    const hdr = document.createElement('div');
+    hdr.className = 'col-header';
+    hdr.dataset.bucket = b.id;
+    hdr.innerHTML = `
+      <div class="col-title"><span class="col-dot"></span>${b.label}</div>
+      <span class="col-count">${bt.length}</span>
+    `;
+    col.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.className = 'col-body';
+    body.dataset.bucket = b.id;
+
+    if (bt.length === 0) {
+      body.innerHTML = `<div class="empty-state"><div class="empty-icon">${b.icon}</div><div>Nothing here yet</div></div>`;
+    } else {
+      bt.forEach(t => {
+        body.appendChild(makeCard(t));
+      });
+    }
+
+    // inline add button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'col-add-btn';
+    addBtn.dataset.bucket = b.id;
+    addBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Add task`;
+    addBtn.addEventListener('click', () => { defBucket = b.id; openModal(); });
+    body.appendChild(addBtn);
+
+    // drag events on column body
+    body.addEventListener('dragover',  onDragOver);
+    body.addEventListener('dragleave', onDragLeave);
+    body.addEventListener('drop',      onDrop);
+
+    col.appendChild(body);
+    board.appendChild(col);
+  });
+}
+
+function makeCard(t) {
+  const card = document.createElement('div');
+  card.className = 'task-card';
+  card.draggable = true;
+  card.dataset.id = t.id;
+
+  const today = new Date().toISOString().slice(0,10);
+  const overdue = t.dueDate && t.dueDate < today && t.bucket !== 'completed';
+
+  const priLabel = { high: 'High', medium: 'Med', low: 'Low' };
+  const priClass = t.priority || 'medium';
+
+  card.innerHTML = `
+    <div class="card-top">
+      <input type="checkbox" class="task-cb" ${t.bucket === 'completed' ? 'checked' : ''} />
+      <div class="task-title ${t.bucket === 'completed' ? 'struck' : ''}">${esc(t.title)}</div>
+      <button class="edit-btn" title="Edit task">✎</button>
+    </div>
+    <div class="card-meta">
+      <span class="pri-badge ${priClass}">${priLabel[priClass]}</span>
+      ${t.dueDate ? `<span class="due-tag ${overdue ? 'overdue' : ''}">📅 ${fmtDate(t.dueDate)}${overdue ? ' !' : ''}</span>` : ''}
+    </div>
+    ${t.notes ? `<div class="card-notes">${esc(t.notes)}</div>` : ''}
+    <div class="org-bar ${t.org}"></div>
+  `;
+
+  // checkbox
+  card.querySelector('.task-cb').addEventListener('change', e => {
+    e.stopPropagation();
+    const task = tasks.find(x => x.id === t.id);
+    if (!task) return;
+    task.bucket = e.target.checked ? 'completed' : 'today';
+    save(); render();
+    sbUpsert(task);
+  });
+
+  // edit
+  card.querySelector('.edit-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    openModal(t.id);
+  });
+
+  // drag
+  card.addEventListener('dragstart', onDragStart);
+  card.addEventListener('dragend',   onDragEnd);
+
+  return card;
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function fmtDate(s) {
+  if (!s) return '';
+  const [, m, d] = s.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1] + ' ' + +d;
+}
+
+// ═══════════════════════════════════════
+//  DRAG & DROP
+// ═══════════════════════════════════════
+function onDragStart(e) {
+  dragId = e.currentTarget.dataset.id;
+  e.currentTarget.classList.add('is-dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragId);
+}
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('is-dragging');
+  document.querySelectorAll('.col-body').forEach(c => c.classList.remove('drag-over'));
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+}
+function onDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragId) return;
+  const newBucket = e.currentTarget.dataset.bucket;
+  const task = tasks.find(t => t.id === dragId);
+  if (task && task.bucket !== newBucket) {
+    task.bucket = newBucket;
+    save(); render();
+    sbUpsert(task);
+  }
+  dragId = null;
+}
+
+// ═══════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════
+function openModal(taskId = null) {
+  editId = taskId;
+  const overlay   = document.getElementById('overlay');
+  const saveBtn   = document.getElementById('btnSave');
+  const deleteBtn = document.getElementById('btnDelete');
+
+  if (taskId) {
+    const t = tasks.find(x => x.id === taskId);
+    if (!t) return;
+    document.getElementById('modalTitle').textContent = 'Edit Task';
+    document.getElementById('fTitle').value    = t.title  || '';
+    document.getElementById('fOrg').value      = t.org    || curOrg;
+    document.getElementById('fBucket').value   = t.bucket || 'today';
+    document.getElementById('fPriority').value = t.priority || 'medium';
+    document.getElementById('fDue').value      = t.dueDate  || '';
+    document.getElementById('fNotes').value    = t.notes    || '';
+    saveBtn.textContent = 'Save Changes';
+    deleteBtn.classList.remove('hidden');
+  } else {
+    document.getElementById('modalTitle').textContent = 'New Task';
+    document.getElementById('fTitle').value    = '';
+    document.getElementById('fOrg').value      = curOrg;
+    document.getElementById('fBucket').value   = defBucket;
+    document.getElementById('fPriority').value = 'medium';
+    document.getElementById('fDue').value      = '';
+    document.getElementById('fNotes').value    = '';
+    saveBtn.textContent = 'Add Task';
+    deleteBtn.classList.add('hidden');
+  }
+
+  saveBtn.className = `btn btn-primary ${curOrg}`;
+  overlay.classList.remove('hidden');
+  setTimeout(() => document.getElementById('fTitle').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.add('hidden');
+  editId = null;
+}
+
+function saveTask() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) { document.getElementById('fTitle').focus(); return; }
+
+  const data = {
+    title,
+    org:      document.getElementById('fOrg').value,
+    bucket:   document.getElementById('fBucket').value,
+    priority: document.getElementById('fPriority').value,
+    dueDate:  document.getElementById('fDue').value || '',
+    notes:    document.getElementById('fNotes').value.trim(),
+  };
+
+  let savedTask;
+  if (editId) {
+    const idx = tasks.findIndex(t => t.id === editId);
+    if (idx !== -1) { tasks[idx] = { ...tasks[idx], ...data }; savedTask = tasks[idx]; }
+  } else {
+    savedTask = { id: uid(), createdAt: Date.now(), ...data };
+    tasks.push(savedTask);
+  }
+
+  if (data.org !== curOrg) { curOrg = data.org; syncOrgUI(); }
+  save(); render(); closeModal();
+  if (savedTask) sbUpsert(savedTask);
+}
+
+function deleteTask() {
+  if (!editId) return;
+  if (!confirm('Delete this task? This cannot be undone.')) return;
+  const id = editId;
+  tasks = tasks.filter(t => t.id !== id);
+  save(); render(); closeModal();
+  sbDelete(id);
+}
+
+// ═══════════════════════════════════════
+//  ORG TABS
+// ═══════════════════════════════════════
+function syncOrgUI() {
+  document.querySelectorAll('.org-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.org === curOrg);
+  });
+  const btn = document.getElementById('btnNew');
+  btn.className = `btn-new ${curOrg}`;
+}
+
+document.getElementById('orgTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.org-tab');
+  if (!tab) return;
+  curOrg = tab.dataset.org;
+  syncOrgUI();
+  render();
+});
+
+// ═══════════════════════════════════════
+//  EVENT WIRING
+// ═══════════════════════════════════════
+document.getElementById('btnNew').addEventListener('click', () => { defBucket = 'today'; openModal(); });
+document.getElementById('btnClose').addEventListener('click', closeModal);
+document.getElementById('btnCancel').addEventListener('click', closeModal);
+document.getElementById('btnSave').addEventListener('click', saveTask);
+document.getElementById('btnDelete').addEventListener('click', deleteTask);
+
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+document.getElementById('fTitle').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveTask(); }
+  if (e.key === 'Escape') closeModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+async function init() {
+  const { createClient } = supabase;
+  sb = createClient(SB_URL, SB_KEY);
+  setSyncStatus('syncing');
+  await load();
+  render();
+}
+init();
+window.addEventListener('resize', () => render());
+</script>
+</body>
+</html>
