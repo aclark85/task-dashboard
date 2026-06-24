@@ -936,7 +936,12 @@ function render() {
   board.innerHTML = '';
 
   BUCKETS.forEach(b => {
-    const bt = tasks.filter(t => t.org === curOrg && t.bucket === b.id);
+    const oneMonthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const bt = tasks.filter(t => {
+      if (t.org !== curOrg || t.bucket !== b.id) return false;
+      if (b.id === 'completed' && t.completedAt && t.completedAt < oneMonthAgo) return false;
+      return true;
+    });
 
     const col = document.createElement('div');
     col.className = 'column' + (isMobile() && b.id !== mobileBucket ? ' mob-hidden' : '');
