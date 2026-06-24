@@ -146,7 +146,7 @@ body {
   flex-shrink: 0;
 }
 .col-header[data-bucket="today"]        { border-color: var(--today); }
-.col-header[data-bucket="highpriority"] { border-color: var(--highpri); }
+.col-header[data-bucket="tomorrow"] { border-color: var(--highpri); }
 .col-header[data-bucket="thisweek"]     { border-color: var(--thisweek); }
 .col-header[data-bucket="someday"]      { border-color: var(--someday); }
 .col-header[data-bucket="completed"]    { border-color: var(--done); }
@@ -166,7 +166,7 @@ body {
   flex-shrink: 0;
 }
 [data-bucket="today"]        .col-dot { background: var(--today); }
-[data-bucket="highpriority"] .col-dot { background: var(--highpri); }
+[data-bucket="tomorrow"] .col-dot { background: var(--highpri); }
 [data-bucket="thisweek"]     .col-dot { background: var(--thisweek); }
 [data-bucket="someday"]      .col-dot { background: var(--someday); }
 [data-bucket="completed"]    .col-dot { background: var(--done); }
@@ -575,7 +575,7 @@ body {
     background: var(--surface);
   }
   .bucket-chip[data-bucket="today"].active        { color: var(--today); background: #FEF2F2; border-color: var(--today); }
-  .bucket-chip[data-bucket="highpriority"].active { color: var(--highpri); background: #FFF7ED; border-color: var(--highpri); }
+  .bucket-chip[data-bucket="tomorrow"].active { color: var(--highpri); background: #FFF7ED; border-color: var(--highpri); }
   .bucket-chip[data-bucket="thisweek"].active     { color: var(--thisweek); background: #EFF6FF; border-color: var(--thisweek); }
   .bucket-chip[data-bucket="someday"].active      { color: var(--someday); background: #F9FAFB; border-color: var(--someday); }
   .bucket-chip[data-bucket="completed"].active    { color: var(--done); background: #F0FDF4; border-color: var(--done); }
@@ -677,7 +677,7 @@ body {
           <label class="form-label" for="fBucket">Bucket</label>
           <select class="form-select" id="fBucket">
             <option value="today">Today</option>
-            <option value="highpriority">High Priority</option>
+            <option value="tomorrow">High Priority</option>
             <option value="thisweek">This Week</option>
             <option value="someday">Someday</option>
             <option value="completed">Completed</option>
@@ -720,13 +720,13 @@ body {
 // ═══════════════════════════════════════
 //  CONSTANTS
 // ═══════════════════════════════════════
-const STORAGE_KEY = 'maxTaskDashboard_v2';
+const STORAGE_KEY = 'maxTaskDashboard_v3';
 const SB_URL      = 'https://nocxpdnrobxaotmluzpt.supabase.co';
 const SB_KEY      = 'sb_publishable_rCdOtMjNW9MgUHO2qhzKKA_j_rcGjaR';
 
 const BUCKETS = [
   { id: 'today',        label: 'Today',         icon: '🔥' },
-  { id: 'highpriority', label: 'High Priority',  icon: '⚡' },
+  { id: 'tomorrow', label: 'Tomorrow',  icon: '🌅' },
   { id: 'thisweek',     label: 'This Week',      icon: '📅' },
   { id: 'someday',      label: 'Someday',        icon: '🌱' },
   { id: 'completed',    label: 'Completed',      icon: '✅' },
@@ -879,10 +879,10 @@ function seed() {
     { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'Theater in education',                      priority: 'medium', dueDate: '',    notes: '' },
     { id: uid(), org: 'spears',   bucket: 'thisweek',     title: 'Claude build out',                          priority: 'medium', dueDate: '',    notes: '' },
     // ── SPEARS ARTS · HIGH PRIORITY ──
-    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'CWC',                                       priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
-    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'PAGE',                                      priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
-    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'PIPER (Stacey)',                            priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
-    { id: uid(), org: 'spears',   bucket: 'highpriority', title: 'WAGON WHEEL',                               priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'tomorrow', title: 'CWC',                                       priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'tomorrow', title: 'PAGE',                                      priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'tomorrow', title: 'PIPER (Stacey)',                            priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
+    { id: uid(), org: 'spears',   bucket: 'tomorrow', title: 'WAGON WHEEL',                               priority: 'high',   dueDate: '',    notes: 'Early July deadline.' },
     // ── SPEARS ARTS · SOMEDAY ──
     { id: uid(), org: 'spears',   bucket: 'someday',      title: 'School vendor expo?',                       priority: 'low',    dueDate: '',    notes: '' },
     { id: uid(), org: 'spears',   bucket: 'someday',      title: 'STA Ambassadors (Jodie, Matt etc)',         priority: 'low',    dueDate: '',    notes: '' },
