@@ -272,10 +272,8 @@ body {
 .task-card:hover .edit-btn { opacity: 1; }
 .edit-btn:hover { background: var(--bg); color: var(--text); }
 
-/* Always show edit button on touch devices (no hover support) */
-@media (hover: none) {
-  .edit-btn { opacity: 1 !important; }
-}
+/* Always show edit button on touch devices */
+body.is-touch .edit-btn { opacity: 1 !important; }
 
 .card-meta {
   display: flex;
@@ -725,6 +723,11 @@ body {
 </div>
 
 <script>
+// Detect touch device and mark body — used to show edit buttons always on mobile
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  document.body.classList.add('is-touch');
+}
+
 // ═══════════════════════════════════════
 //  CONSTANTS
 // ═══════════════════════════════════════
