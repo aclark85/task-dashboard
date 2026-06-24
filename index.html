@@ -272,6 +272,11 @@ body {
 .task-card:hover .edit-btn { opacity: 1; }
 .edit-btn:hover { background: var(--bg); color: var(--text); }
 
+/* Always show edit button on touch devices (no hover support) */
+@media (hover: none) {
+  .edit-btn { opacity: 1 !important; }
+}
+
 .card-meta {
   display: flex;
   align-items: center;
